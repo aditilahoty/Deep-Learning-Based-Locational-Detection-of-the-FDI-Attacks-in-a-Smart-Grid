@@ -1,6 +1,6 @@
 function [PdQd,p,q,p_attacked,q_attacked,success] = Attack_generation(Basecase_index)
 
-mpc=case14_Version_source_domain(Basecase_index);
+mpc=Case14powerFlowData(Basecase_index);
 [MVAbase, bus, gen, gencost, branch, f, success, et] = runopf(mpc);
 PdQd = [bus([2:6,9:14],3);bus([2:6,9:14],4)];
   
