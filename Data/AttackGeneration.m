@@ -27,10 +27,10 @@ for n=1:size(branch,1)
     end
 end
 
-p_delta = zeros(40,1);
+p_delta = zeros(19,1);
 p_delta(index,1)=attack_intensity*p(index,1);
 p_attacked = p+p_delta;
-q_delta = zeros(40,1);q_delta(index,1)=attack_intensity*q(index,1);q_attacked = q+q_delta;
+q_delta = zeros(19,1);q_delta(index,1)=attack_intensity*q(index,1);q_attacked = q+q_delta;
 
 end
 
