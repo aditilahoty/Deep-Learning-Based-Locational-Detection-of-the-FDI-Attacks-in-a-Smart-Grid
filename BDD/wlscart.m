@@ -107,13 +107,93 @@
          %%%%%    Jacobian  Block 2: Derivative of Power injection    %%%%%     
          %%%%%            with respect to states                      %%%%%     
          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-           H31 = zeros(npi,nbus);  %Derivative of real power injection wrt e     H32 = zeros(npi,nbus);  %Derivative of real power injection wrt f     H41 = zeros(npi,nbus);  %Derivative of reactive power injection wrt e     H42 = zeros(npi,nbus);  %Derivative of reactive power injection wrt f     for i = 1:npi         m = fbus(ppi(i));         for k = 1:(nbus)             if k == m                 for n = 1:nbus                     H31(i,k) = H31(i,k) + (G(m,n)*e(n) - B(m,n)*f(n));                     H32(i,k) = H32(i,k) + (G(m,n)*f(n) + B(m,n)*e(n));                     H41(i,k) = H41(i,k) -G(m,n)*f(n) - B(m,n)*e(n);                     
-H42(i,k) = H42(i,k) + (G(m,n)*e(n) - B(m,n)*f(n)); 
-         
-         
-
-
-
+           H31 = zeros(npi,nbus);  %Derivative of real power injection wrt e     
+           H32 = zeros(npi,nbus);  %Derivative of real power injection wrt f     
+           H41 = zeros(npi,nbus);  %Derivative of reactive power injection wrt e     
+           H42 = zeros(npi,nbus);  %Derivative of reactive power injection wrt f     
+           for i = 1:npi         
+               m = fbus(ppi(i));         
+               for k = 1:(nbus)             
+                   if k == m                 
+                       for n = 1:nbus                     
+                           H31(i,k) = H31(i,k) + (G(m,n)*e(n) - B(m,n)*f(n));                     
+                           H32(i,k) = H32(i,k) + (G(m,n)*f(n) + B(m,n)*e(n));                     
+                           H41(i,k) = H41(i,k) -G(m,n)*f(n) - B(m,n)*e(n);                     
+                           H42(i,k) = H42(i,k) + (G(m,n)*e(n) - B(m,n)*f(n)); 
+                        end                 
+                        H31(i,k) = H31(i,k) + f(m)*B(m,m) + G(m,m)*e(m);                 
+                        H32(i,k) = H32(i,k) - e(m)*B(m,m) + f(m)*G(m,m);                 
+                        H41(i,k) = H41(i,k) + f(m)*G(m,m) - e(m)*B(m,m);                 
+                        H42(i,k) = H42(i,k) - e(m)*G(m,m) - f(m)*B(m,m);             
+                     else                 
+                        H31(i,k) = G(m,k)*e(m) + B(m,k)*f(m);                 
+                        H32(i,k) =G(m,k)*f(m) - B(m,k)*e(m);                     
+                        H41(i,k) = (G(m,k)*f(m) - B(m,k)*e(m));                 
+                        H42(i,k) = (-G(m,k)*e(m) - B(m,k)*f(m));            
+                      end         
+                  end     
+              end 
+              
+          
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     
+                %%%%%        Jacobian Block 3: Derivative of Power flow       %%%%%     
+                %%%%%                 with respect to states                  %%%%%     
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%      
+                H51 = zeros(npf,nbus);     
+                H52 = zeros(npf,nbus);    
+                H61 = zeros(nqf,nbus);     
+                H62 = zeros(nqf,nbus);     
+                for i = 1:npf         
+                    m = fbus(pf(i));         
+                    n = tbus(pf(i));                 
+                    H51(i,m) = 2*e(m)*g(m,n) - g(m,n)*e(n) + b(m,n)*f(n);                 
+                    H51(i,n) = -g(m,n)*e(m) - b(m,n)*f(m);         
+                    H52(i,m) = 2*f(m)*g(m,n) - g(m,n)*f(n) - b(m,n)*e(n);         
+                    H52(i,n) = -g(m,n)*f(m) + b(m,n)*e(m);                
+                    H61(i,m)=-2*e(m)*(b(m,n)+bsh(m,n))+g(m,n)*f(n)+b(m,n)*e(n);         
+                    H61(i,n) = -g(m,n)*f(m) + b(m,n)*e(m);                     
+                    H62(i,m)=-2*f(m)*(b(m,n)+bsh(m,n))-g(m,n)*e(n)+b(m,n)*f(n);         
+                    H62(i,n) = g(m,n)*e(m) + b(m,n)*f(m);     
+                end 
+                
+                 % Measurement Jacobian, H..     
+                 H = [H11 H12;          
+                      H21 H22;          
+                      H31 H32;          
+                      H41 H42;          
+                      H51 H52;          
+                      H61 H62];           
+                  
+                  % Gain Matrix, Gm..     
+                  Gm = H'*inv(Ri)*H;          
+                  
+                  %Objective Function..     
+                  J = sum(inv(Ri)*r.^2);            
+                  
+                  %Solving for states iteratively by cholesky factorization and forward
+                  %and back substitution. 
+                  
+                  gm=H'*inv(Ri)*r; 
+                  dE=factoriseGbychol(Gm,gm,length(E)); 
+                  E = E + dE; 
+                  
+                  e = E(1:nbus); 
+                  f = E(nbus+1:end); 
+                  iter = iter + 1; 
+                  tol = max(abs(dE)); 
+               end 
+               
+               displayout(E,'a'); % Displaying output in tabular form 
+               
+               %% 
+               %baddata 
+               
+               O = Ri- H*inv(Gm)*H'; 
+               od=diag(O); 
+               cm = find(od<=1e-12); 
+               r(cm)=0; 
+               rN=abs(r)./sqrt(od); 
+               displayout(rN,'b');  % Display rN in formatted form
 
 
 
